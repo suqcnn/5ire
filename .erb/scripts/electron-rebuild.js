@@ -22,7 +22,7 @@ if (
    */
   const electronRebuildCmd =
     '../../node_modules/.bin/electron-rebuild --force --types prod,dev,optional --module-dir .';
-  
+
   /**
    * Platform-specific command with proper path separators
    * Windows uses backslashes, other platforms use forward slashes
@@ -32,7 +32,7 @@ if (
     process.platform === 'win32'
       ? electronRebuildCmd.replace(/\//g, '\\')
       : electronRebuildCmd;
-  
+
   /**
    * Execute the electron-rebuild command synchronously
    * Uses the app path as working directory and inherits stdio for output

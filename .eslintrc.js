@@ -5,10 +5,10 @@
 module.exports = {
   // Base configuration to extend from
   extends: 'erb',
-  
+
   // Additional ESLint plugins to use
   plugins: ['@typescript-eslint'],
-  
+
   /**
    * Custom linting rules configuration
    * Overrides or adds specific rules beyond the base configuration
@@ -30,7 +30,7 @@ module.exports = {
     'prefer-destructuring': 'warn',
     'react/jsx-props-no-spreading': 'warn',
   },
-  
+
   /**
    * Parser configuration options
    * Specifies how ESLint should parse the source code
@@ -42,7 +42,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
     createDefaultProgram: true,
   },
-  
+
   /**
    * Additional settings for ESLint plugins
    * Configures import resolution and parser mappings
