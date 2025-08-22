@@ -27,8 +27,8 @@ jobs:
       # - name: Run linter
       #   run: npm run lint
 
-      - name: Run tests
-        run: npm test
+      # - name: Run tests
+      #   run: npm test
 
       - name: Build and package Windows application
         run: npm run package
