@@ -14,6 +14,7 @@ import {
 import OpenAI from 'providers/OpenAI';
 import { IServiceProvider } from 'providers/types';
 import useInspectorStore from 'stores/useInspectorStore';
+import { IModelCallTrace } from 'types/inspector';
 import { raiseError, stripHtmlTags } from 'utils/util';
 import { isValidHttpHRL } from 'utils/validators';
 
@@ -52,7 +53,12 @@ export default abstract class NextCharService {
 
   protected outputTokens: number = 0;
 
-  protected traceTool: (chatId: string, label: string, msg: string) => void;
+  protected traceToolCall: (chatId: string, label: string, msg: string) => void;
+
+  protected traceModelCall: (
+    chatId: string,
+    trace: Omit<IModelCallTrace, 'id' | 'type' | 'chatId'>,
+  ) => void;
 
   protected getSystemRoleName() {
     if (this.name === OpenAI.name) {
@@ -74,7 +80,8 @@ export default abstract class NextCharService {
     this.provider = provider;
     this.context = context;
     this.abortController = new AbortController();
-    this.traceTool = useInspectorStore.getState().trace;
+    this.traceToolCall = useInspectorStore.getState().traceToolCall;
+    this.traceModelCall = useInspectorStore.getState().traceModelCall;
 
     this.onCompleteCallback = () => {
       throw new Error('onCompleteCallback is not set');
@@ -288,8 +295,12 @@ export default abstract class NextCharService {
     let reply = '';
     let reasoning = '';
     let signal: any = null;
+    const startTime = Date.now();
+    let payload: IChatRequestPayload | null = null;
+
     try {
       signal = this.abortController.signal;
+      payload = await this.makePayload(messages, msgId);
       const response = await this.makeRequest(messages, msgId);
       debug(
         `${this.name} Start Reading:`,
@@ -336,6 +347,15 @@ export default abstract class NextCharService {
         },
         onToolCalls: this.onToolCallsCallback,
       });
+
+      this.traceModelCall(chatId, {
+        requestPayload: payload,
+        responseBody: readResult,
+        latency: Date.now() - startTime,
+        inputTokens: readResult.inputTokens,
+        outputTokens: readResult.outputTokens,
+      });
+
       if (this.updateBuffer || this.reasoningBuffer) {
         this.onReadingCallback(this.updateBuffer, this.reasoningBuffer);
         this.updateBuffer = '';
@@ -349,7 +369,7 @@ export default abstract class NextCharService {
       }
       if (readResult.tool) {
         const [client, name] = readResult.tool.name.split('--');
-        this.traceTool(chatId, name, '');
+        this.traceToolCall(chatId, name, '');
 
         // 生成唯一的请求ID
         const toolRequestId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -375,7 +395,7 @@ export default abstract class NextCharService {
             abortHandler,
           );
 
-          this.traceTool(
+          this.traceToolCall(
             chatId,
             'arguments',
             JSON.stringify(readResult.tool.args, null, 2),
@@ -385,9 +405,9 @@ export default abstract class NextCharService {
               toolCallsResult.content.length > 0
                 ? toolCallsResult.content[0]
                 : { error: 'Unknown error' };
-            this.traceTool(chatId, 'error', JSON.stringify(toolError, null, 2));
+            this.traceToolCall(chatId, 'error', JSON.stringify(toolError, null, 2));
           } else {
-            this.traceTool(
+            this.traceToolCall(
               chatId,
               'response',
               JSON.stringify(toolCallsResult, null, 2),
