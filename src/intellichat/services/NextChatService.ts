@@ -191,6 +191,22 @@ export default abstract class NextCharService {
           if (isStream && response.isStream) {
             const stream = new ReadableStream({
               start(controller) {
+                // Define cleanup function before its usage
+                const cleanup = () => {
+                  window.electron.ipcRenderer.unsubscribe(
+                    'stream-data',
+                    handleData,
+                  );
+                  window.electron.ipcRenderer.unsubscribe(
+                    'stream-end',
+                    handleEnd,
+                  );
+                  window.electron.ipcRenderer.unsubscribe(
+                    'stream-error',
+                    handleError,
+                  );
+                };
+
                 const handleData = (...args: unknown[]) => {
                   const [requestId, chunk] = args as [string, Uint8Array];
                   if (requestId === response.requestId) {
@@ -214,21 +230,6 @@ export default abstract class NextCharService {
                   }
                 };
 
-                const cleanup = () => {
-                  window.electron.ipcRenderer.unsubscribe(
-                    'stream-data',
-                    handleData,
-                  );
-                  window.electron.ipcRenderer.unsubscribe(
-                    'stream-end',
-                    handleEnd,
-                  );
-                  window.electron.ipcRenderer.unsubscribe(
-                    'stream-error',
-                    handleError,
-                  );
-                };
-
                 window.electron.ipcRenderer.on('stream-data', handleData);
                 window.electron.ipcRenderer.on('stream-end', handleEnd);
                 window.electron.ipcRenderer.on('stream-error', handleError);
@@ -240,17 +241,17 @@ export default abstract class NextCharService {
               statusText: response.statusText,
               headers: new Headers(response.headers),
             });
-          } else {
-            // 非流响应，直接返回文本内容
-            return new Response(response.text || '', {
-              status: response.status,
-              statusText: response.statusText,
-              headers: new Headers(response.headers),
-            });
           }
+          
+          // 非流响应，直接返回文本内容
+          return new Response(response.text || '', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: new Headers(response.headers),
+          });
         });
 
-      const abortPromise = new Promise<never>((_, reject) => {
+      const abortPromise = new Promise<never>((resolve, reject) => {
         this.abortController.signal.addEventListener('abort', async () => {
           if (this.currentRequestId) {
             await window.electron.cancelRequest(this.currentRequestId);
@@ -405,7 +406,11 @@ export default abstract class NextCharService {
               toolCallsResult.content.length > 0
                 ? toolCallsResult.content[0]
                 : { error: 'Unknown error' };
-            this.traceToolCall(chatId, 'error', JSON.stringify(toolError, null, 2));
+            this.traceToolCall(
+              chatId,
+              'error',
+              JSON.stringify(toolError, null, 2),
+            );
           } else {
             this.traceToolCall(
               chatId,
