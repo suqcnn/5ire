@@ -32,7 +32,7 @@ jobs:
 
       - name: Build and package Windows application
         run: npm run package
-        env:
+        # env:  # Commented out the empty env section
           # If you have code signing certificates, you can add them here
           # CSC_LINK: ${{ secrets.CSC_LINK }}
           # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
